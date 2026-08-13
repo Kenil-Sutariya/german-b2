@@ -1,6 +1,6 @@
 import "server-only";
 
-import { neon } from "@neondatabase/serverless";
+import { get, put } from "@vercel/blob";
 import type { ProgressState } from "@/types/learning";
 
 export interface StoredProgress {
@@ -9,57 +9,26 @@ export interface StoredProgress {
   updatedAt: string;
 }
 
-const USER_ID = "kenil";
-let schemaReady: Promise<void> | undefined;
+const PROGRESS_PATH = "roadmap/kenil-progress.json";
 
 declare global {
   var __roadmapTestProgress: StoredProgress | undefined;
 }
 
-function database() {
-  const connectionString = process.env.DATABASE_URL;
-  if (!connectionString)
-    throw new Error("DATABASE_URL is not configured for cloud synchronization.");
-  return neon(connectionString);
-}
-
-async function ensureSchema() {
-  if (process.env.E2E_TEST_MODE === "1") return;
-  if (!schemaReady) {
-    schemaReady = (async () => {
-      const sql = database();
-      await sql`
-        CREATE TABLE IF NOT EXISTS roadmap_progress (
-          user_id TEXT PRIMARY KEY,
-          state JSONB NOT NULL,
-          revision INTEGER NOT NULL DEFAULT 1,
-          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )
-      `;
-    })();
-  }
-  await schemaReady;
+function requireBlobToken() {
+  if (!process.env.BLOB_READ_WRITE_TOKEN)
+    throw new Error(
+      "BLOB_READ_WRITE_TOKEN is not configured for cloud synchronization.",
+    );
 }
 
 export async function readProgress(): Promise<StoredProgress | null> {
   if (process.env.E2E_TEST_MODE === "1")
     return globalThis.__roadmapTestProgress ?? null;
-  await ensureSchema();
-  const sql = database();
-  const rows = await sql`
-    SELECT state, revision, updated_at
-    FROM roadmap_progress
-    WHERE user_id = ${USER_ID}
-  `;
-  const row = rows[0] as
-    | { state: ProgressState; revision: number; updated_at: string | Date }
-    | undefined;
-  if (!row) return null;
-  return {
-    state: row.state,
-    revision: Number(row.revision),
-    updatedAt: new Date(row.updated_at).toISOString(),
-  };
+  requireBlobToken();
+  const result = await get(PROGRESS_PATH, { access: "private" });
+  if (!result || result.statusCode !== 200 || !result.stream) return null;
+  return (await new Response(result.stream).json()) as StoredProgress;
 }
 
 export async function writeProgress(
@@ -74,28 +43,20 @@ export async function writeProgress(
     globalThis.__roadmapTestProgress = record;
     return record;
   }
-  await ensureSchema();
-  const sql = database();
-  const serialized = JSON.stringify(state);
-  const rows = await sql`
-    INSERT INTO roadmap_progress (user_id, state, revision, updated_at)
-    VALUES (${USER_ID}, ${serialized}::jsonb, 1, NOW())
-    ON CONFLICT (user_id) DO UPDATE SET
-      state = EXCLUDED.state,
-      revision = roadmap_progress.revision + 1,
-      updated_at = NOW()
-    RETURNING state, revision, updated_at
-  `;
-  const row = rows[0] as {
-    state: ProgressState;
-    revision: number;
-    updated_at: string | Date;
+  requireBlobToken();
+  const record: StoredProgress = {
+    state,
+    revision: Date.now(),
+    updatedAt: new Date().toISOString(),
   };
-  return {
-    state: row.state,
-    revision: Number(row.revision),
-    updatedAt: new Date(row.updated_at).toISOString(),
-  };
+  await put(PROGRESS_PATH, JSON.stringify(record), {
+    access: "private",
+    allowOverwrite: true,
+    addRandomSuffix: false,
+    contentType: "application/json",
+    cacheControlMaxAge: 60,
+  });
+  return record;
 }
 
 export function resetTestProgress() {

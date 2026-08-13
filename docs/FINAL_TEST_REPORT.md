@@ -29,7 +29,7 @@ Chromium and desktop WebKit also ran the complete required viewport matrix: 320 
 
 ## Notes
 
-Playwright uses a fresh native Next.js production build on port 4173, one worker, and a dedicated in-memory PostgreSQL test adapter enabled only by `E2E_TEST_MODE`. The seven skipped combinations are intentional: the dedicated mobile-navigation test only applies to the three mobile/tablet projects, while the full viewport matrix only applies to Chromium and desktop WebKit.
+Playwright uses a fresh native Next.js production build on port 4173, one worker, and a dedicated in-memory storage adapter enabled only by `E2E_TEST_MODE`. The seven skipped combinations are intentional: the dedicated mobile-navigation test only applies to the three mobile/tablet projects, while the full viewport matrix only applies to Chromium and desktop WebKit.
 
 Critical controls covered include the server password gate, unauthenticated API rejection, one-time browser-cache migration, cross-device synchronization in two separate browser contexts, offline edits surviving a page lifecycle and synchronizing after reconnect, Continue Learning, week/day states, grammar search and filters, Quick/Full practice, answer submission and explanations, score persistence, Review Mistakes, vocabulary state, notes CRUD, reading/listening/speaking controls, writing persistence, notification read/settings behavior, onboarding controls, export, valid/invalid import, reset confirmation, and mobile navigation.
 

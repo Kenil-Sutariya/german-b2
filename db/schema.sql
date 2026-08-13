@@ -1,6 +1,0 @@
-CREATE TABLE IF NOT EXISTS roadmap_progress (
-  user_id TEXT PRIMARY KEY,
-  state JSONB NOT NULL,
-  revision INTEGER NOT NULL DEFAULT 1,
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);

@@ -2,7 +2,7 @@
 
 A focused personal learning dashboard for revising German B1 and progressing systematically to B2 in under one hour per day.
 
-The project includes a complete 30-week roadmap, six study days per week, grammar and vocabulary libraries, official resource links, four-skill tracking, exam checkpoints, notes, recommendations, private password access, and cross-device progress through PostgreSQL.
+The project includes a complete 30-week roadmap, six study days per week, grammar and vocabulary libraries, official resource links, four-skill tracking, exam checkpoints, notes, recommendations, private password access, and cross-device progress through private Vercel Blob storage.
 
 ## Highlights
 
@@ -14,7 +14,7 @@ The project includes a complete 30-week roadmap, six study days per week, gramma
 - First-run onboarding, searchable Help Center, contextual help, and useful empty states
 - In-app notifications, browser permission handling, and installable PWA foundation
 - Preferred official resources from Klett/Netzwerk and Hueber, plus Goethe exam materials
-- Neon PostgreSQL synchronization with a browser cache for offline fallback
+- Private Vercel Blob synchronization with a browser cache for offline fallback
 - Server-validated password access with a signed, HttpOnly session cookie
 - JSON export/import and confirmed reset
 - Responsive desktop sidebar and mobile bottom navigation
@@ -31,7 +31,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Generate the password hash with `npm run auth:hash -- "your private password"`; generate `AUTH_SECRET` with `openssl rand -base64 48`; and use a Neon/PostgreSQL connection string for `DATABASE_URL`. Open the local address printed by the development server. See the Vercel guide below for the full setup.
+Generate the password hash with `npm run auth:hash -- "your private password"`; generate `AUTH_SECRET` with `openssl rand -base64 48`; and connect a private Vercel Blob store. Vercel supplies `BLOB_READ_WRITE_TOKEN` automatically. Open the local address printed by the development server. See the Vercel guide below for the full setup.
 
 For a production check:
 
@@ -81,13 +81,13 @@ Add a theme to `vocabularyThemes`. For nouns, include article and useful plural.
 
 ## Progress storage
 
-PostgreSQL is the source of truth. `lib/progress-store.ts` persists the complete versioned progress state through the authenticated `/api/progress` route, while `lib/storage.ts` maintains the browser key `kenil-german-roadmap:v2` as an offline cache. Existing v1/v2 browser data is migrated automatically when the cloud record is empty. JSON export/import remains available in Settings.
+Private Vercel Blob storage is the source of truth. `lib/progress-store.ts` persists the complete versioned progress state through the authenticated `/api/progress` route, while `lib/storage.ts` maintains the browser key `kenil-german-roadmap:v2` as an offline cache. Existing v1/v2 browser data is migrated automatically when the Vercel store is empty. JSON export/import remains available in Settings.
 
 The UI reports `Synced`, `Syncing…`, `Offline — saved on this device`, or `Sync error`. Changes made offline remain in the local cache and are uploaded after connectivity returns.
 
 ## Deploy to Vercel
 
-This is a native Next.js deployment: `npm run build` runs `next build` and creates the real `.next` output. Follow [docs/VERCEL_DEPLOYMENT.md](docs/VERCEL_DEPLOYMENT.md) to connect Neon and configure `DATABASE_URL`, `SITE_PASSWORD_HASH`, and `AUTH_SECRET`. Do not configure a custom Vercel output directory.
+This is a native Next.js deployment: `npm run build` runs `next build` and creates the real `.next` output. Follow [docs/VERCEL_DEPLOYMENT.md](docs/VERCEL_DEPLOYMENT.md) to create a private Blob store and configure `SITE_PASSWORD_HASH` and `AUTH_SECRET`. Do not configure a custom Vercel output directory.
 
 ## Product decisions
 

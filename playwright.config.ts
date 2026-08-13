@@ -13,7 +13,7 @@ export default defineConfig({
   testDir: "./tests/e2e",
   timeout: 30_000,
   expect: { timeout: 7_000 },
-  // A serial file run keeps shared test-database state deterministic.
+  // A serial file run keeps shared test-storage state deterministic.
   fullyParallel: false,
   workers: 1,
   retries: process.env.CI ? 1 : 0,
@@ -27,7 +27,7 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
   webServer: {
-    command: "npm run build && npm run start:test",
+    command: "npm run build -- --webpack && npm run start:test",
     url: "http://localhost:4173",
     reuseExistingServer: false,
     timeout: 120_000,

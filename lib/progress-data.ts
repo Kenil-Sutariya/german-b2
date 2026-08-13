@@ -7,7 +7,7 @@ const initialNotifications: AppNotification[] = [
   { id: "welcome-review", category: "Review", title: "Relativsätze wiederholen", body: "Deine Markierung „Unsicher“ bringt dieses Thema zurück in den Fokus.", timestamp: "2026-08-13T08:00:00.000Z", read: false },
   { id: "weekly-review", category: "Study", title: "Wochenreview", body: "Nimm dir heute 15 Minuten für schwierige Themen.", timestamp: "2026-08-12T17:00:00.000Z", read: false },
   { id: "b1-milestone", category: "Milestone", title: "B1 Core Refreshed 🎯", body: "Ein wichtiger Roadmap-Abschnitt ist geschafft. Nutze den nächsten Checkpoint zur Festigung.", timestamp: "2026-08-12T12:00:00.000Z", read: true },
-  { id: "privacy-note", category: "System", title: "Deine Daten bleiben privat", body: "Dein Fortschritt wird verschlüsselt übertragen und in deiner privaten Cloud-Datenbank gespeichert.", timestamp: "2026-08-11T10:00:00.000Z", read: true },
+  { id: "privacy-note", category: "System", title: "Deine Daten bleiben privat", body: "Dein Fortschritt wird verschlüsselt übertragen und in deinem privaten Vercel-Speicher gespeichert.", timestamp: "2026-08-11T10:00:00.000Z", read: true },
 ];
 
 export const defaultProgress: ProgressState = {

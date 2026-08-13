@@ -12,7 +12,7 @@
 
 - [x] Protected learning routes redirect to the private password page
 - [x] Wrong password is rejected; correct password creates an authenticated session
-- [x] Unauthenticated database APIs return 401
+- [x] Unauthenticated storage APIs return 401
 - [x] Existing localStorage progress migrates to an empty cloud record
 - [x] Browser A saves progress and Browser B loads the same progress
 - [x] Offline edits survive a page lifecycle and upload after reconnect

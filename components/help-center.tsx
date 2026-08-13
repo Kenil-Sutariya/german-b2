@@ -34,7 +34,7 @@ const helpItems = [
   ["Import progress", "Stellt eine gültige Sicherung wieder her.", "Wähle eine v1- oder v2-Datei; ältere Daten werden sicher migriert.", "Ungültige Dateien werden abgelehnt, ohne vorhandene Daten zu überschreiben."],
   ["Reset progress", "Setzt das Gerät auf den Ausgangszustand.", "Exportiere vorher und bestätige den Warnhinweis.", "Ohne Sicherung ist der Reset nicht rückgängig zu machen."],
   ["PWA / Add to Home Screen", "Installiert die Website wie eine App.", "Auf iPhone/iPad: Teilen → Zum Home-Bildschirm. Andere Browser können eine Installieren-Aktion zeigen.", "Offline-Grundgerüst und App-Symbol ändern deine Lerndaten nicht."],
-  ["Data & privacy", "Alle persönlichen Daten bleiben in diesem Browser.", "Nutze Export/Import für Gerätewechsel und lösche Browserdaten nur mit Sicherung.", "Kein Konto, keine Datenbank und kein Upload von Texten oder Audio."],
+  ["Data & privacy", "Dein Lernfortschritt wird nach der Anmeldung mit deinem privaten Vercel-Speicher synchronisiert.", "Der Browser behält eine Offline-Kopie; bestehender lokaler Fortschritt wird einmalig in die Cloud übernommen.", "Passwort und Sitzungsschlüssel bleiben serverseitig. Audio wird nie aufgenommen oder hochgeladen."],
 ] as const;
 
 export function HelpCenter() {
