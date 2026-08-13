@@ -571,14 +571,17 @@ textarea:focus-visible {
 .badge {
   display: inline-flex;
   align-items: center;
+  flex: 0 0 auto;
   border-radius: 5px;
   background: #edf0ed;
   color: #596360;
   padding: 4px 7px;
   font-size: 12px;
+  line-height: 1.2;
   letter-spacing: 0.04em;
   font-weight: 800;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 .badge.teal {
   background: var(--teal-soft);
