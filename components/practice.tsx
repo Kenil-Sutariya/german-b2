@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   ArrowRight,
@@ -71,7 +72,7 @@ export function PracticeHub({
         <SkillCard
           icon={<NotebookPen />}
           title="Schreiben"
-          text="Aufgaben, Strukturhilfen, Wortzähler und lokal gespeicherte Entwürfe."
+          text="Aufgaben, Strukturhilfen, Wortzähler und synchronisierte Entwürfe."
           href="/practice/writing"
           meta={`${writingPractice.length} Aufgaben`}
         />
@@ -157,14 +158,18 @@ export function PracticeEntry({
   progress: ProgressState;
   update: Update;
 }) {
-  if (id === "reading") return <ReadingPractice />;
-  if (id === "listening") return <ListeningPractice />;
+  if (id === "reading")
+    return <ReadingPractice progress={progress} update={update} />;
+  if (id === "listening")
+    return <ListeningPractice progress={progress} update={update} />;
   if (id === "writing")
     return <WritingPractice progress={progress} update={update} />;
-  if (id === "speaking") return <SpeakingPractice />;
+  if (id === "speaking")
+    return <SpeakingPractice progress={progress} update={update} />;
   if (id?.startsWith("vocab-"))
     return (
       <ExercisePlayer
+        key={`${id}:${mode}`}
         topicId={id}
         mode={mode as ExerciseMode}
         progress={progress}
@@ -173,6 +178,7 @@ export function PracticeEntry({
     );
   return (
     <ExercisePlayer
+      key={`${id ?? grammarTopics[0].slug}:${mode}`}
       topicId={id ?? grammarTopics[0].slug}
       mode={mode as ExerciseMode}
       progress={progress}
@@ -192,6 +198,7 @@ function ExercisePlayer({
   progress: ProgressState;
   update: Update;
 }) {
+  const router = useRouter();
   const isVocabulary = topicId.startsWith("vocab-");
   const grammarTopic = grammarTopics.find((topic) => topic.slug === topicId);
   const vocabTheme = vocabularyThemes.find(
@@ -326,7 +333,7 @@ function ExercisePlayer({
     setFinished(true);
   };
   const restart = (targetMode: ExerciseMode) => {
-    window.location.href = `/practice/${topicId}?mode=${targetMode}`;
+    router.push(`/practice/${topicId}?mode=${targetMode}`);
   };
 
   if (finished) {
@@ -515,7 +522,13 @@ function EmptyPractice({
   );
 }
 
-function ReadingPractice() {
+function ReadingPractice({
+  progress,
+  update,
+}: {
+  progress: ProgressState;
+  update: Update;
+}) {
   const [selectedText, setSelectedText] = useState(readingPractice[0]);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [checked, setChecked] = useState(false);
@@ -574,7 +587,28 @@ function ReadingPractice() {
       <button
         className="button primary"
         disabled={Object.keys(answers).length !== selectedText.questions.length}
-        onClick={() => setChecked(true)}
+        onClick={() => {
+          setChecked(true);
+          const correct = selectedText.questions.filter(
+            (question, index) => answers[index] === question.answer,
+          ).length;
+          const score = Math.round(
+            (correct / selectedText.questions.length) * 100,
+          );
+          const previous = progress.skillProgress[selectedText.id];
+          update((current) => ({
+            ...current,
+            skillProgress: {
+              ...current.skillProgress,
+              [selectedText.id]: {
+                attempts: (previous?.attempts ?? 0) + 1,
+                latestScore: score,
+                bestScore: Math.max(previous?.bestScore ?? 0, score),
+                lastPracticeDate: new Date().toISOString().slice(0, 10),
+              },
+            },
+          }));
+        }}
       >
         Antworten prüfen
       </button>
@@ -582,7 +616,13 @@ function ReadingPractice() {
   );
 }
 
-function ListeningPractice() {
+function ListeningPractice({
+  progress,
+  update,
+}: {
+  progress: ProgressState;
+  update: Update;
+}) {
   const [selectedItem, setSelectedItem] = useState(listeningPractice[0]);
   const [answer, setAnswer] = useState("");
   const [checked, setChecked] = useState(false);
@@ -693,7 +733,23 @@ function ListeningPractice() {
       <button
         className="button primary"
         disabled={!answer}
-        onClick={() => setChecked(true)}
+        onClick={() => {
+          setChecked(true);
+          const score = answer === selectedItem.answer ? 100 : 0;
+          const previous = progress.skillProgress[selectedItem.id];
+          update((current) => ({
+            ...current,
+            skillProgress: {
+              ...current.skillProgress,
+              [selectedItem.id]: {
+                attempts: (previous?.attempts ?? 0) + 1,
+                latestScore: score,
+                bestScore: Math.max(previous?.bestScore ?? 0, score),
+                lastPracticeDate: new Date().toISOString().slice(0, 10),
+              },
+            },
+          }));
+        }}
       >
         Antwort prüfen
       </button>
@@ -720,16 +776,25 @@ function WritingPractice({
     setSaved(false);
   };
   const save = () => {
+    const previous = progress.skillProgress[task.id];
     update((current) => ({
       ...current,
       writingDrafts: { ...current.writingDrafts, [task.id]: draft },
+      skillProgress: {
+        ...current.skillProgress,
+        [task.id]: {
+          ...previous,
+          attempts: (previous?.attempts ?? 0) + 1,
+          lastPracticeDate: new Date().toISOString().slice(0, 10),
+        },
+      },
     }));
     setSaved(true);
   };
   return (
     <PracticeSkillLayout
       title="Schreiben"
-      subtitle="Plane, schreibe und speichere deinen Entwurf lokal in diesem Browser."
+      subtitle="Plane, schreibe und synchronisiere deinen Entwurf auf deinen Geräten."
       items={writingPractice}
       selectedId={task.id}
       onSelect={select}
@@ -793,7 +858,7 @@ function WritingPractice({
         {saved && (
           <span>
             <CheckCircle2 size={16} />
-            Lokal gespeichert
+            Gespeichert — Cloud-Sync läuft automatisch
           </span>
         )}
       </div>
@@ -801,7 +866,13 @@ function WritingPractice({
   );
 }
 
-function SpeakingPractice() {
+function SpeakingPractice({
+  progress,
+  update,
+}: {
+  progress: ProgressState;
+  update: Update;
+}) {
   const [task, setTask] = useState(speakingPractice[0]);
   const [phase, setPhase] = useState<"idle" | "prep" | "speak" | "done">(
     "idle",
@@ -900,7 +971,24 @@ function SpeakingPractice() {
             {["Unsicher", "Okay", "Sicher"].map((item) => (
               <button
                 className={`button ghost ${rating === item ? "active" : ""}`}
-                onClick={() => setRating(item)}
+                onClick={() => {
+                  setRating(item);
+                  const previous = progress.skillProgress[task.id];
+                  update((current) => ({
+                    ...current,
+                    skillProgress: {
+                      ...current.skillProgress,
+                      [task.id]: {
+                        ...previous,
+                        attempts: (previous?.attempts ?? 0) + 1,
+                        selfRating: item,
+                        lastPracticeDate: new Date()
+                          .toISOString()
+                          .slice(0, 10),
+                      },
+                    },
+                  }));
+                }}
                 key={item}
               >
                 {item}

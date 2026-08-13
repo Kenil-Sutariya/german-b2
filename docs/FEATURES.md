@@ -23,7 +23,7 @@
 - **Roadmap:** 30 weeks from B1 revision to B2 exam preparation. Open a week, complete its tasks, and mark each day done, partial, skipped, moved, or repeat.
 - **Grammar:** 43 searchable topics with confidence labels, explanations, examples, Quick Practice, Full Practice, and Review Mistakes.
 - **Vocabulary:** 12 categories with themed word lists, difficult-word marking, and category practice.
-- **Skills:** reading texts with comprehension questions, synthetic browser speech for listening, locally saved writing drafts, and timed speaking prompts.
+- **Skills:** reading texts with comprehension questions, synthetic browser speech for listening, synchronized writing drafts, and timed speaking prompts with synchronized self-ratings.
 - **Progress:** stored quiz attempts, best/latest scores, review needs, completed work, study minutes, and confidence.
 - **Notes:** create, search, edit, and delete personal notes.
 

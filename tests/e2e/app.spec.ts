@@ -1,6 +1,15 @@
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
+function configuredTestPassword() {
+  const value = process.env.E2E_SITE_PASSWORD;
+  if (!value)
+    throw new Error("Playwright did not configure its ephemeral test password.");
+  return value;
+}
+
+const TEST_PASSWORD = configuredTestPassword();
+
 const state = {
   version: 2,
   completedTasks: [],
@@ -18,6 +27,7 @@ const state = {
     },
   },
   vocabularyProgress: {},
+  skillProgress: {},
   notes: [],
   writingDrafts: {},
   currentWeek: 7,
@@ -53,11 +63,137 @@ const state = {
   },
 };
 
+async function unlock(page: import("@playwright/test").Page) {
+  await page.goto("/login");
+  await page.getByLabel("Password").fill(TEST_PASSWORD);
+  await page.getByRole("button", { name: "Unlock" }).click();
+  await expect(page).toHaveURL(/\/$/);
+}
+
+async function waitForSync(page: import("@playwright/test").Page) {
+  await expect(page.getByTitle("Synced")).toBeVisible({ timeout: 10_000 });
+}
+
+async function waitForUploaded(page: import("@playwright/test").Page) {
+  await expect(page.getByTitle("Syncing…")).toBeVisible({ timeout: 5_000 });
+  await waitForSync(page);
+}
+
 test.beforeEach(async ({ page }) => {
   await page.addInitScript((value) => {
     if (!localStorage.getItem("kenil-german-roadmap:v2"))
       localStorage.setItem("kenil-german-roadmap:v2", JSON.stringify(value));
   }, state);
+  await unlock(page);
+  const response = await page.request.put("/api/progress", {
+    data: { state },
+  });
+  expect(response.ok()).toBeTruthy();
+  await page.goto("/");
+  await waitForSync(page);
+});
+
+test("password gate and progress API require an authenticated session", async ({
+  browser,
+}) => {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await page.goto("/roadmap");
+  await expect(page).toHaveURL(/\/login\?returnTo=%2Froadmap/);
+  await expect(
+    page.getByRole("heading", { name: "Kenil's German Roadmap" }),
+  ).toBeVisible();
+  await page.getByLabel("Password").fill("wrong-password");
+  await page.getByRole("button", { name: "Unlock" }).click();
+  await expect(page.locator(".login-error")).toContainText("not correct");
+  const unauthorized = await context.request.get("/api/progress");
+  expect(unauthorized.status()).toBe(401);
+  await page.getByLabel("Password").fill(TEST_PASSWORD);
+  await page.getByRole("button", { name: "Unlock" }).click();
+  await expect(page).toHaveURL(/\/roadmap$/);
+  await context.close();
+});
+
+test("migrates an existing device cache to an empty cloud record", async ({
+  browser,
+}) => {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await unlock(page);
+  expect((await context.request.delete("/api/progress")).status()).toBe(204);
+  await page.evaluate((value) => {
+    localStorage.setItem("kenil-german-roadmap:v2", JSON.stringify(value));
+  }, { ...state, currentWeek: 9 });
+  await page.goto("/");
+  await expect(page.getByText(/migrated to the cloud/i)).toBeVisible();
+  await waitForSync(page);
+  const stored = await (await context.request.get("/api/progress")).json();
+  expect(stored.state.currentWeek).toBe(9);
+  await context.close();
+});
+
+test("synchronizes progress between two separate browser contexts", async ({
+  browser,
+}) => {
+  const contextA = await browser.newContext();
+  const contextB = await browser.newContext();
+  const pageA = await contextA.newPage();
+  const pageB = await contextB.newPage();
+  await unlock(pageA);
+  await unlock(pageB);
+  expect(
+    (
+      await contextA.request.put("/api/progress", {
+        data: { state },
+      })
+    ).ok(),
+  ).toBeTruthy();
+  await pageA.goto("/");
+  await waitForSync(pageA);
+  const taskId = await pageA.locator(".task").first().getAttribute("data-task-id");
+  await pageA.locator(".task").first().click();
+  await expect(pageA.locator(".task").first()).toHaveClass(/done/);
+  await waitForUploaded(pageA);
+  await pageB.goto("/");
+  await waitForSync(pageB);
+  const matchingTask = taskId
+    ? pageB.locator(`.task[data-task-id="${taskId}"]`)
+    : pageB.locator(".task").first();
+  await expect(matchingTask).toHaveClass(/done/);
+  await contextA.close();
+  await contextB.close();
+});
+
+test("keeps offline changes across a page lifecycle and syncs on reconnect", async ({
+  browser,
+  context,
+  page,
+}) => {
+  await page.goto("/");
+  const taskId = await page.locator(".task").first().getAttribute("data-task-id");
+  await context.setOffline(true);
+  await page.locator(".task").first().click();
+  await expect(page.locator(".task").first()).toHaveClass(/done/);
+  await expect(
+    page.getByTitle("Offline — saved on this device"),
+  ).toBeVisible();
+  await page.close();
+
+  await context.setOffline(false);
+  const reconnectedPage = await context.newPage();
+  await reconnectedPage.goto("/");
+  await waitForSync(reconnectedPage);
+
+  const contextB = await browser.newContext();
+  const pageB = await contextB.newPage();
+  await unlock(pageB);
+  await pageB.goto("/");
+  await waitForSync(pageB);
+  const matchingTask = taskId
+    ? pageB.locator(`.task[data-task-id="${taskId}"]`)
+    : pageB.locator(".task").first();
+  await expect(matchingTask).toHaveClass(/done/);
+  await contextB.close();
 });
 
 test("primary navigation and routes load", async ({ page }) => {
@@ -88,6 +224,7 @@ test("dashboard task completion persists and Continue Learning opens week", asyn
   const task = page.locator(".task").first();
   await task.click();
   await expect(task).toHaveClass(/done/);
+  await waitForUploaded(page);
   await page.reload();
   await expect(page.locator(".task").first()).toHaveClass(/done/);
   await page.getByRole("link", { name: /Weiterlernen/ }).click();
@@ -165,6 +302,7 @@ test("vocabulary theme and practice open", async ({ page }) => {
   await expect(
     page.getByRole("button", { name: "English hidden" }),
   ).toBeVisible();
+  await waitForUploaded(page);
   await page.reload();
   await page.getByRole("button", { name: /Wohnen/ }).click();
   await expect(
@@ -184,6 +322,7 @@ test("notes create edit delete", async ({ page }) => {
   await page.getByPlaceholder(/Regel, Beispiel/).fill("helfen + Dativ");
   await page.getByRole("button", { name: "Speichern" }).click();
   await expect(page.getByRole("heading", { name: "Kasus" })).toBeVisible();
+  await waitForUploaded(page);
   await page.reload();
   await expect(page.getByRole("heading", { name: "Kasus" })).toBeVisible();
   await page.getByLabel("Edit Kasus").click();
@@ -205,6 +344,7 @@ test("writing draft persists", async ({ page }) => {
       "Guten Tag, ich möchte meinen Termin verschieben, weil ich arbeiten muss.",
     );
   await page.getByRole("button", { name: /Entwurf speichern/ }).click();
+  await waitForUploaded(page);
   await page.reload();
   await expect(page.getByPlaceholder(/Schreibe deinen Text/)).toHaveValue(
     /Guten Tag/,
@@ -248,6 +388,7 @@ test("notification center and settings persist", async ({ page }) => {
   await page.goto("/settings");
   await page.getByRole("button", { name: "30 min" }).click();
   await page.getByLabel("Weekly review day").selectOption("5");
+  await waitForUploaded(page);
   await page.reload();
   await expect(page.getByRole("button", { name: "30 min" })).toHaveClass(
     /active/,
@@ -293,14 +434,13 @@ test("onboarding supports back, next, finish and reopening", async ({
   page,
 }) => {
   await page.goto("/");
-  await page.evaluate(() => {
-    const key = "kenil-german-roadmap:v2";
-    const current = JSON.parse(localStorage.getItem(key) ?? "{}");
-    localStorage.setItem(
-      key,
-      JSON.stringify({ ...current, onboardingComplete: false }),
-    );
-  });
+  expect(
+    (
+      await page.request.put("/api/progress", {
+        data: { state: { ...state, onboardingComplete: false } },
+      })
+    ).ok(),
+  ).toBeTruthy();
   await page.reload();
   const dialog = page.getByRole("dialog", { name: "Heute" });
   await expect(dialog).toBeVisible();
@@ -312,6 +452,7 @@ test("onboarding supports back, next, finish and reopening", async ({
     await page.getByRole("button", { name: "Weiter" }).click();
   await page.getByRole("button", { name: "Fertig" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
+  await waitForUploaded(page);
   await page.goto("/settings");
   await page.getByRole("button", { name: /Onboarding erneut/ }).click();
   await expect(page.getByRole("dialog", { name: "Heute" })).toBeVisible();
@@ -391,13 +532,19 @@ test("required viewport matrix has no horizontal overflow", async ({
   }
 });
 
-test("key routes produce no console or page errors", async ({ page }) => {
-  const errors: string[] = [];
-  page.on("pageerror", (error) => errors.push(`pageerror: ${error.message}`));
-  page.on("console", (message) => {
-    if (message.type() === "error") errors.push(`console: ${message.text()}`);
-  });
-  for (const route of ["/", "/roadmap", "/grammar", "/practice", "/settings"])
-    await page.goto(route, { waitUntil: "networkidle" });
-  expect(errors).toEqual([]);
+test("key routes produce no console or page errors", async ({ context }) => {
+  for (const route of ["/", "/roadmap", "/grammar", "/practice", "/settings"]) {
+    const routePage = await context.newPage();
+    const errors: string[] = [];
+    routePage.on("pageerror", (error) =>
+      errors.push(`pageerror: ${error.message}`),
+    );
+    routePage.on("console", (message) => {
+      if (message.type() === "error") errors.push(`console: ${message.text()}`);
+    });
+    await routePage.goto(route, { waitUntil: "networkidle" });
+    await routePage.waitForTimeout(250);
+    expect(errors, `${route} produced browser errors`).toEqual([]);
+    await routePage.close();
+  }
 });

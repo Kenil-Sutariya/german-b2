@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   ArrowRight,
@@ -15,6 +16,7 @@ import {
   CheckCircle2,
   ChevronDown,
   Clock3,
+  Cloud,
   Download,
   ExternalLink,
   Flame,
@@ -38,6 +40,7 @@ import {
   Trophy,
   Upload,
   Volume2,
+  WifiOff,
   X,
   Zap,
 } from "lucide-react";
@@ -52,9 +55,11 @@ import {
   defaultProgress,
   exportProgress,
   importProgress,
-  loadProgress,
-  saveProgress,
 } from "@/lib/storage";
+import {
+  type SyncStatus,
+  useCloudProgress,
+} from "@/lib/use-cloud-progress";
 import { recommendation, weakTopics } from "@/lib/recommendations";
 import type {
   Confidence,
@@ -121,22 +126,21 @@ const skillLabels: Record<Skill, string> = {
 };
 
 export default function LearningApp({ view, id, mode }: Props) {
-  const [progress, setProgress] = useState<ProgressState>(defaultProgress);
-  const [ready, setReady] = useState(false);
+  const router = useRouter();
+  const {
+    progress,
+    ready,
+    status,
+    update,
+    migrationNotice,
+    dismissMigrationNotice,
+    retrySync,
+  } = useCloudProgress();
   const [mobileOpen, setMobileOpen] = useState(false);
-  // Loading persisted browser state is an intentional one-time client hydration step.
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setProgress(loadProgress());
-    setReady(true);
     if ("serviceWorker" in navigator)
       navigator.serviceWorker.register("/sw.js").catch(() => undefined);
   }, []);
-  useEffect(() => {
-    if (ready) saveProgress(progress);
-  }, [progress, ready]);
-  const update = (fn: (p: ProgressState) => ProgressState) =>
-    setProgress((p) => fn(p));
   if (!ready)
     return (
       <div
@@ -218,6 +222,9 @@ export default function LearningApp({ view, id, mode }: Props) {
             <Settings size={19} />
             Einstellungen
           </Link>
+          <form action="/api/auth/logout" method="post">
+            <button className="sidebar-signout" type="submit">Sign out</button>
+          </form>
           <div className="daily-target">
             <div>
               <Target size={17} />
@@ -254,12 +261,15 @@ export default function LearningApp({ view, id, mode }: Props) {
               placeholder="Themen, Wörter, Ressourcen suchen …"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && e.currentTarget.value)
-                  location.href = `/grammar?q=${encodeURIComponent(e.currentTarget.value)}`;
+                  router.push(
+                    `/grammar?q=${encodeURIComponent(e.currentTarget.value)}`,
+                  );
               }}
             />
             <kbd>⌘ K</kbd>
           </div>
           <div className="top-actions">
+            <SyncIndicator status={status} onRetry={retrySync} />
             <div className="streak">
               <Flame size={18} />
               <strong>{progress.streak}</strong>
@@ -271,9 +281,24 @@ export default function LearningApp({ view, id, mode }: Props) {
             </div>
             <NotificationCenter progress={progress} update={update} />
             <div className="avatar">K</div>
+            <form action="/api/auth/logout" method="post">
+              <button className="sign-out" type="submit">Sign out</button>
+            </form>
           </div>
         </header>
         <div className="content">
+          {migrationNotice && (
+            <div className="migration-notice" role="status">
+              <Cloud size={18} />
+              <span>
+                Existing progress from this device was securely migrated to the
+                cloud and will now follow you across devices.
+              </span>
+              <button onClick={dismissMigrationNotice} aria-label="Dismiss migration message">
+                <X size={16} />
+              </button>
+            </div>
+          )}
           {view === "today" && (
             <Dashboard progress={progress} update={update} />
           )}{" "}
@@ -327,6 +352,34 @@ export default function LearningApp({ view, id, mode }: Props) {
         />
       )}
     </div>
+  );
+}
+
+function SyncIndicator({
+  status,
+  onRetry,
+}: {
+  status: SyncStatus;
+  onRetry: () => void;
+}) {
+  const labels: Record<SyncStatus, string> = {
+    synced: "Synced",
+    syncing: "Syncing…",
+    offline: "Offline — saved on this device",
+    error: "Sync error",
+  };
+  const Icon = status === "offline" ? WifiOff : Cloud;
+  return (
+    <button
+      className={`sync-indicator ${status}`}
+      type="button"
+      onClick={status === "error" ? onRetry : undefined}
+      aria-live="polite"
+      title={status === "error" ? "Retry cloud synchronization" : labels[status]}
+    >
+      <Icon size={15} />
+      <span>{labels[status]}</span>
+    </button>
   );
 }
 
@@ -791,6 +844,7 @@ function Dashboard({
               <button
                 className={`task ${progress.completedTasks.includes(task.id) ? "done" : ""}`}
                 key={task.id}
+                data-task-id={task.id}
                 onClick={() => toggle(task.id, planMinutes[i])}
               >
                 <span className="task-check">

@@ -1,20 +1,16 @@
-const CACHE = "kenil-roadmap-shell-v3";
-const SHELL = [
-  "/",
-  "/roadmap",
-  "/grammar",
-  "/practice",
-  "/settings",
-  "/help",
-  "/manifest.webmanifest",
+const CACHE = "kenil-roadmap-static-v4";
+const PUBLIC_ASSETS = [
   "/favicon.svg",
+  "/icon-192.png",
+  "/icon-512.png",
+  "/manifest.webmanifest",
 ];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(CACHE)
-      .then((cache) => cache.addAll(SHELL))
+      .then((cache) => cache.addAll(PUBLIC_ASSETS))
       .then(() => self.skipWaiting()),
   );
 });
@@ -32,32 +28,7 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-self.addEventListener("fetch", (event) => {
-  const { request } = event;
-  const url = new URL(request.url);
-  if (request.method !== "GET" || url.origin !== self.location.origin) return;
-
-  if (request.mode === "navigate") {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          if (response.ok) {
-            const copy = response.clone();
-            event.waitUntil(
-              caches.open(CACHE).then((cache) => cache.put(request, copy)),
-            );
-          }
-          return response;
-        })
-        .catch(
-          async () =>
-            (await caches.match(request)) ?? (await caches.match("/")),
-        ),
-    );
-    return;
-  }
-
-  // Static module requests use the browser's HTTP cache. Intercepting module
-  // scripts here can turn an ordinary navigation abort into a failed import in
-  // Firefox/WebKit, so the worker handles document fallbacks only.
-});
+// Protected HTML and API responses are deliberately never cached. This keeps
+// the password boundary server-enforced even after sign-out. An already-open
+// authenticated tab continues to save edits to localStorage while offline and
+// uploads them when the connection returns.

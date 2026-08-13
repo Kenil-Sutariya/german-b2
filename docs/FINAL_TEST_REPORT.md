@@ -11,10 +11,10 @@ All required static checks, content validation, production build, and the final 
 | TypeScript         | Passed (`tsc --noEmit`)                                                                                           |
 | ESLint             | Passed with no errors or warnings                                                                                 |
 | Content validation | Passed: 43 grammar topics, 344 grammar questions, 12 vocabulary themes, 72 vocabulary questions, 30 roadmap weeks |
-| Playwright         | Passed: 89 tests, 7 intentional project skips, 0 failures across 96 project/test combinations                     |
+| Playwright         | Passed: 113 tests, 7 intentional project skips, 0 failures across 120 project/test combinations                   |
 | Accessibility      | Passed: no serious or critical axe violations in all six browser/device projects                                  |
 | Runtime console    | Passed on Chromium, Firefox, WebKit, mobile Chromium, mobile WebKit, and iPad WebKit                              |
-| Production build   | Passed; all application routes were emitted                                                                       |
+| Production build   | Passed with native `next build`; a genuine `.next` output and all application routes were emitted                 |
 
 ## Browser/device projects
 
@@ -29,8 +29,8 @@ Chromium and desktop WebKit also ran the complete required viewport matrix: 320 
 
 ## Notes
 
-Playwright uses a fresh Vinext production build on port 4173, one worker, and a dedicated server. Serial execution prevents development-module graph races from being mistaken for application errors. The seven skipped combinations are intentional: the dedicated mobile-navigation test only applies to the three mobile/tablet projects, while the full viewport matrix only applies to Chromium and desktop WebKit.
+Playwright uses a fresh native Next.js production build on port 4173, one worker, and a dedicated in-memory PostgreSQL test adapter enabled only by `E2E_TEST_MODE`. The seven skipped combinations are intentional: the dedicated mobile-navigation test only applies to the three mobile/tablet projects, while the full viewport matrix only applies to Chromium and desktop WebKit.
 
-Critical controls covered include Continue Learning, week/day states, grammar search and filters, Quick/Full practice, answer submission and explanations, score persistence, Review Mistakes, vocabulary state, notes CRUD, reading/listening/speaking controls, writing persistence, notification read/settings behavior, onboarding controls, export, valid/invalid import, reset confirmation, and mobile navigation.
+Critical controls covered include the server password gate, unauthenticated API rejection, one-time browser-cache migration, cross-device synchronization in two separate browser contexts, offline edits surviving a page lifecycle and synchronizing after reconnect, Continue Learning, week/day states, grammar search and filters, Quick/Full practice, answer submission and explanations, score persistence, Review Mistakes, vocabulary state, notes CRUD, reading/listening/speaking controls, writing persistence, notification read/settings behavior, onboarding controls, export, valid/invalid import, reset confirmation, and mobile navigation.
 
 Browser notifications remain subject to permission, platform policy, and the absence of a push backend. The service worker provides a PWA shell/navigation foundation, not guaranteed closed-browser scheduled delivery.

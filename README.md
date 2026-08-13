@@ -2,7 +2,7 @@
 
 A focused personal learning dashboard for revising German B1 and progressing systematically to B2 in under one hour per day.
 
-The project includes a complete 30-week roadmap, six study days per week, grammar and vocabulary libraries, official resource links, four-skill tracking, exam checkpoints, notes, recommendations, and device-local progress. No account, database, paid API, or AI service is required.
+The project includes a complete 30-week roadmap, six study days per week, grammar and vocabulary libraries, official resource links, four-skill tracking, exam checkpoints, notes, recommendations, private password access, and cross-device progress through PostgreSQL.
 
 ## Highlights
 
@@ -14,7 +14,8 @@ The project includes a complete 30-week roadmap, six study days per week, gramma
 - First-run onboarding, searchable Help Center, contextual help, and useful empty states
 - In-app notifications, browser permission handling, and installable PWA foundation
 - Preferred official resources from Klett/Netzwerk and Hueber, plus Goethe exam materials
-- Device-local completion, confidence, difficult words, scores, settings, and notes
+- Neon PostgreSQL synchronization with a browser cache for offline fallback
+- Server-validated password access with a signed, HttpOnly session cookie
 - JSON export/import and confirmed reset
 - Responsive desktop sidebar and mobile bottom navigation
 - Vercel-ready Next.js App Router structure
@@ -25,10 +26,12 @@ Requires Node.js 22.13 or newer.
 
 ```bash
 npm install
+cp .env.example .env.local
+# Replace every placeholder in .env.local.
 npm run dev
 ```
 
-Open the local address printed by the development server.
+Generate the password hash with `npm run auth:hash -- "your private password"`; generate `AUTH_SECRET` with `openssl rand -base64 48`; and use a Neon/PostgreSQL connection string for `DATABASE_URL`. Open the local address printed by the development server. See the Vercel guide below for the full setup.
 
 For a production check:
 
@@ -52,7 +55,7 @@ npm run build
 - `/resources` — official resource library
 - `/exam` — B1/B2 checkpoint and exam practice
 - `/progress` — learning metrics and confidence overview
-- `/notes` — personal device-local notes
+- `/notes` — personal synchronized notes
 - `/settings` — study rhythm, export/import and reset
 - `/help` — complete feature, progress, privacy, notification, and PWA guidance
 
@@ -78,19 +81,13 @@ Add a theme to `vocabularyThemes`. For nouns, include article and useful plural.
 
 ## Progress storage
 
-`lib/storage.ts` is the versioned device-local storage abstraction. The current browser key is `kenil-german-roadmap:v2`; valid v1 state is migrated automatically. Progress survives refreshes on the same browser and can be moved with the JSON export/import tools in Settings.
+PostgreSQL is the source of truth. `lib/progress-store.ts` persists the complete versioned progress state through the authenticated `/api/progress` route, while `lib/storage.ts` maintains the browser key `kenil-german-roadmap:v2` as an offline cache. Existing v1/v2 browser data is migrated automatically when the cloud record is empty. JSON export/import remains available in Settings.
 
-This is intentionally local-only for the MVP, as specified in the product brief. Clearing browser storage removes progress unless an export exists.
+The UI reports `Synced`, `Syncing…`, `Offline — saved on this device`, or `Sync error`. Changes made offline remain in the local cache and are uploaded after connectivity returns.
 
 ## Deploy to Vercel
 
-1. Create a GitHub repository without changing the existing local Git identity.
-2. Push this project to the repository.
-3. In Vercel, choose **Add New → Project** and import that repository.
-4. Keep the detected framework and build command (`npm run build`).
-5. Deploy. No environment variables or external services are required.
-
-Because all learner data is device-local, each browser starts with its own progress. Use export/import to transfer it.
+This is a native Next.js deployment: `npm run build` runs `next build` and creates the real `.next` output. Follow [docs/VERCEL_DEPLOYMENT.md](docs/VERCEL_DEPLOYMENT.md) to connect Neon and configure `DATABASE_URL`, `SITE_PASSWORD_HASH`, and `AUTH_SECRET`. Do not configure a custom Vercel output directory.
 
 ## Product decisions
 
@@ -101,4 +98,4 @@ Because all learner data is device-local, each browser starts with its own progr
 
 ## Current boundaries
 
-Browser notifications require explicit permission and platform support. Without a push backend they are not guaranteed when the browser and site are completely closed. Speaking practice uses a local timer and self-rating; it deliberately does not record or upload audio. Dark mode and printable weeks are not included.
+Browser notifications require explicit permission and platform support. Without a push backend they are not guaranteed when the browser and site are completely closed. Speaking practice uses a local timer and synchronizes only the self-rating; it deliberately does not record or upload audio. Dark mode and printable weeks are not included.

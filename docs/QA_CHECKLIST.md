@@ -10,6 +10,13 @@
 
 ## Functional coverage
 
+- [x] Protected learning routes redirect to the private password page
+- [x] Wrong password is rejected; correct password creates an authenticated session
+- [x] Unauthenticated database APIs return 401
+- [x] Existing localStorage progress migrates to an empty cloud record
+- [x] Browser A saves progress and Browser B loads the same progress
+- [x] Offline edits survive a page lifecycle and upload after reconnect
+- [x] Sync status transitions through Syncing… to Synced
 - [x] Primary navigation and every top-level route
 - [x] Dashboard task completion and reload persistence
 - [x] Continue Learning opens the current week
